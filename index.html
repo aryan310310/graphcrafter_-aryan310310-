@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive Graph UI</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+    }
+    svg {
+      width: 100vw;
+      height: 100vh;
+    }
+    .node circle, .node rect {
+      cursor: pointer;
+      stroke-width: 1.5px;
+    }
+    .edgePath path {
+      stroke: #999;
+      stroke-width: 1.5px;
+      fill: none;
+    }
+    .tooltip {
+      position: absolute;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      padding: 5px;
+      pointer-events: none;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+<div class="tooltip" style="opacity:0;"></div>
+<script>
+const graphData = {
+  nodes: [
+    { id: 'A', label: 'Alpha', shape: 'circle', color: 'skyblue', metadata: 'Root node' },
+    { id: 'B', label: 'Beta', shape: 'rect', color: 'orange', metadata: 'Child of Alpha' },
+    { id: 'C', label: 'Gamma', shape: 'circle', color: 'lightgreen', metadata: 'Child of Beta' }
+  ],
+  edges: [
+    { source: 'A', target: 'B', label: 'connects', color: '#555', dashed: false, metadata: 'A to B' },
+    { source: 'B', target: 'C', label: 'flows', color: '#f00', dashed: true, metadata: 'B to C (flow)' }
+  ]
+};
+
+const width = window.innerWidth;
+const height = window.innerHeight;
+const svg = d3.select("body").append("svg")
+  .call(d3.zoom().on("zoom", (event) => svg.attr("transform", event.transform)))
+  .append("g");
+
+const tooltip = d3.select(".tooltip");
+
+const simulation = d3.forceSimulation(graphData.nodes)
+  .force("link", d3.forceLink(graphData.edges).id(d => d.id).distance(150))
+  .force("charge", d3.forceManyBody().strength(-400))
+  .force("center", d3.forceCenter(width / 2, height / 2));
+
+const link = svg.append("g")
+  .attr("class", "links")
+  .selectAll("line")
+  .data(graphData.edges)
+  .join("line")
+  .attr("stroke", d => d.color)
+  .attr("stroke-dasharray", d => d.dashed ? "5,5" : "0")
+  .attr("marker-end", "url(#arrow)");
+
+svg.append("defs").append("marker")
+  .attr("id", "arrow")
+  .attr("viewBox", "0 -5 10 10")
+  .attr("refX", 25)
+  .attr("refY", 0)
+  .attr("markerWidth", 6)
+  .attr("markerHeight", 6)
+  .attr("orient", "auto")
+  .append("path")
+  .attr("d", "M0,-5L10,0L0,5")
+  .attr("fill", "#555");
+
+const node = svg.append("g")
+  .attr("class", "nodes")
+  .selectAll("g")
+  .data(graphData.nodes)
+  .join("g")
+  .attr("class", "node")
+  .call(d3.drag()
+    .on("start", dragstarted)
+    .on("drag", dragged)
+    .on("end", dragended));
+
+node.each(function(d) {
+  if (d.shape === 'circle') {
+    d3.select(this).append("circle")
+      .attr("r", 20)
+      .attr("fill", d.color);
+  } else {
+    d3.select(this).append("rect")
+      .attr("width", 50).attr("height", 30)
+      .attr("x", -25).attr("y", -15)
+      .attr("fill", d.color);
+  }
+});
+
+node.append("text")
+  .attr("dy", 5)
+  .attr("x", 0)
+  .attr("text-anchor", "middle")
+  .text(d => d.label);
+
+node.on("mouseover", (event, d) => {
+  tooltip.transition().duration(200).style("opacity", 0.9);
+  tooltip.html(`<strong>${d.label}</strong><br/>${d.metadata}`)
+    .style("left", (event.pageX + 10) + "px")
+    .style("top", (event.pageY - 28) + "px");
+})
+.on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0));
+
+link.on("mouseover", (event, d) => {
+  tooltip.transition().duration(200).style("opacity", 0.9);
+  tooltip.html(`<strong>${d.label}</strong><br/>${d.metadata}`)
+    .style("left", (event.pageX + 10) + "px")
+    .style("top", (event.pageY - 28) + "px");
+})
+.on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0));
+
+simulation.on("tick", () => {
+  link.attr("x1", d => d.source.x)
+      .attr("y1", d => d.source.y)
+      .attr("x2", d => d.target.x)
+      .attr("y2", d => d.target.y);
+
+  node.attr("transform", d => `translate(${d.x},${d.y})`);
+});
+
+function dragstarted(event, d) {
+  if (!event.active) simulation.alphaTarget(0.3).restart();
+  d.fx = d.x;
+  d.fy = d.y;
+}
+function dragged(event, d) {
+  d.fx = event.x;
+  d.fy = event.y;
+}
+function dragended(event, d) {
+  if (!event.active) simulation.alphaTarget(0);
+  d.fx = null;
+  d.fy = null;
+}
+</script>
+</body>
+</html>
